@@ -263,6 +263,17 @@ async function apiRequest<T>(
         handleSessionExpired();
       }
 
+      if (
+        errorCode === 'DEMO_READ_ONLY' &&
+        typeof window !== 'undefined'
+      ) {
+        window.dispatchEvent(
+          new CustomEvent('masar:demo-read-only', {
+            detail: { message: errorMessage },
+          }),
+        );
+      }
+
       throw new ApiError({
         message: errorMessage || `Request failed with status ${response.status}.`,
         status: response.status,

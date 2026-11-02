@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+body.demo-mode {
+  --demo-banner: 4.75rem;
+  padding-top: var(--demo-banner);
+}
+
+@media (min-width: 640px) {
+  body.demo-mode {
+    --demo-banner: 2.75rem;
+  }
+}
+
 :root {
   /* Modern Color Palette - UNIFIED ORANGE THEME */
   --background: #FFFFFF;

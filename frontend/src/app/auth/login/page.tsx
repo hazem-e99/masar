@@ -13,6 +13,7 @@ import { useI18n } from '@/contexts/LanguageContext';
 import LanguageSwitcher from '@/components/ui/LanguageSwitcher';
 import Image from 'next/image';
 import { getApiErrorMessage } from '@/lib/apiError';
+import { DemoLoginPanel } from '@/components/demo/DemoLoginPanel';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -38,6 +39,12 @@ export default function LoginPage() {
     return errs.map(e => map[e] || e).join(', ');
   };
 
+  const goToDashboard = () => {
+    const stored = localStorage.getItem('user');
+    const role = stored ? JSON.parse(stored).role : 'student';
+    router.push(`/dashboard/${String(role || 'student').toLowerCase()}`);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -52,9 +59,7 @@ export default function LoginPage() {
 
     try {
       await login(email, password, rememberMe);
-      const userRole = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!).role : 'student';
-      const dashboardPath = `/dashboard/${userRole.toLowerCase()}`;
-      router.push(dashboardPath);
+      goToDashboard();
     } catch (err: unknown) {
       setError(getApiErrorMessage(err));
     } finally {
@@ -197,6 +202,8 @@ export default function LoginPage() {
                       {isLoading ? t('pages.auth.login.cta.signingIn', 'Signing in...') : t('pages.auth.login.cta.signIn', 'Sign in')}
                     </Button>
                   </form>
+
+                  <DemoLoginPanel onSignedIn={goToDashboard} />
 
                   <div className="mt-6 text-center">
                     <Link href="/auth/forgot-password" className="text-sm text-primary hover:text-primary-hover font-medium">

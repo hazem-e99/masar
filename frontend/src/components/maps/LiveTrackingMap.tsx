@@ -1,50 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { CircleMarker, LatLngExpression, Map as LeafletMap } from 'leaflet';
 import { BusLocationData } from '@/hooks/useBusTracking';
 
-const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ?? '';
-
-let googleMapsLoaded = false;
-let googleMapsPromise: Promise<void> | null = null;
-
-function loadGoogleMaps(): Promise<void> {
-  if (!GOOGLE_MAPS_KEY) {
-    return Promise.reject(new Error('Google Maps key is not configured'));
-  }
-  if (googleMapsLoaded && window.google?.maps) return Promise.resolve();
-  if (googleMapsPromise) return googleMapsPromise;
-
-  googleMapsPromise = new Promise((resolve, reject) => {
-    if (window.google?.maps) {
-      googleMapsLoaded = true;
-      resolve();
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&language=ar&region=EG`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      googleMapsLoaded = true;
-      resolve();
-    };
-    script.onerror = () => reject(new Error('Failed to load Google Maps'));
-    document.head.appendChild(script);
-  });
-
-  return googleMapsPromise;
-}
-
-function createBusSvgUrl(color: string): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
-    <circle cx="22" cy="22" r="20" fill="${color}" stroke="white" stroke-width="3"/>
-    <g transform="translate(11,11)">
-      <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z" fill="white"/>
-    </g>
-  </svg>`;
-  return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
-}
+const CAIRO: [number, number] = [30.0444, 31.2357];
 
 interface LiveTrackingMapProps {
   locations: BusLocationData[];
@@ -52,186 +12,117 @@ interface LiveTrackingMapProps {
   busNames?: Record<number, string>;
 }
 
+function popupNode(loc: BusLocationData, busNames: Record<number, string>): HTMLElement {
+  const root = document.createElement('div');
+  const title = document.createElement('strong');
+  title.textContent = busNames[loc.busId] || `Bus ${loc.busId}`;
+  const body = document.createElement('div');
+  const speed = Math.round(loc.speed || 0);
+  body.textContent = `${loc.latitude.toFixed(5)}, ${loc.longitude.toFixed(5)} · ${speed} km/h`;
+  root.append(title, body);
+  return root;
+}
+
 export const LiveTrackingMap = ({
   locations,
   height = 500,
   busNames = {},
 }: LiveTrackingMapProps) => {
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<Map<number, google.maps.Marker>>(new Map());
-  const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
-  const [mapReady, setMapReady] = useState(false);
-  const [mapError, setMapError] = useState<string | null>(
-    GOOGLE_MAPS_KEY ? null : 'Map unavailable. Set NEXT_PUBLIC_GOOGLE_MAPS_KEY.',
-  );
-  const hasFittedRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<LeafletMap | null>(null);
+  const markersRef = useRef<Map<number, CircleMarker>>(new Map());
+  const fittedRef = useRef(false);
+  const leafletRef = useRef<typeof import('leaflet') | null>(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!GOOGLE_MAPS_KEY) return;
     let cancelled = false;
+    let map: LeafletMap | null = null;
+    const markers = markersRef.current;
+    const onResize = () => map?.invalidateSize();
 
-    loadGoogleMaps().then(() => {
-      if (cancelled || !mapContainer.current || mapRef.current) return;
-
-      const gmap = new google.maps.Map(mapContainer.current, {
-        center: { lat: 24.7136, lng: 46.6753 },
-        zoom: 11,
-        gestureHandling: 'greedy',
-        zoomControl: true,
-        streetViewControl: false,
-        fullscreenControl: true,
-        mapTypeControl: false,
-      });
-
-      mapRef.current = gmap;
-      infoWindowRef.current = new google.maps.InfoWindow();
-      setMapReady(true);
-    }).catch(() => {
-      if (!cancelled) setMapError('Map unavailable. Set NEXT_PUBLIC_GOOGLE_MAPS_KEY.');
+    (async () => {
+      const loaded = await import('leaflet');
+      const L = (loaded.default ?? loaded) as typeof import('leaflet');
+      await import('leaflet/dist/leaflet.css');
+      if (cancelled || !containerRef.current) return;
+      leafletRef.current = L;
+      map = L.map(containerRef.current).setView(CAIRO, 12);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 19,
+      }).addTo(map);
+      mapRef.current = map;
+      window.addEventListener('resize', onResize);
+      map.invalidateSize();
+      setReady(true);
+    })().catch(() => {
+      if (!cancelled) setReady(false);
     });
 
-    const markers = markersRef.current;
     return () => {
       cancelled = true;
-      markers.forEach(m => m.setMap(null));
+      window.removeEventListener('resize', onResize);
       markers.clear();
+      fittedRef.current = false;
       mapRef.current = null;
-      infoWindowRef.current = null;
-      setMapReady(false);
-      hasFittedRef.current = false;
+      map?.remove();
     };
   }, []);
 
-  const buildInfoContent = useCallback((loc: BusLocationData) => {
-    const busLabel = busNames[loc.busId] || `Bus ${loc.busId}`;
-    const isActive = loc.isTracking !== false;
-    const trackingColor = isActive ? '#22c55e' : '#94a3b8';
-    const trackingStatus = isActive ? 'Active' : 'Inactive';
-    const speedKmh = ((loc.speed || 0) * 3.6).toFixed(1);
-    const updatedAt = loc.timestamp ? new Date(loc.timestamp).toLocaleTimeString() : 'N/A';
-
-    const root = document.createElement('div');
-    root.style.padding = '10px';
-    root.style.minWidth = '180px';
-    root.style.fontFamily = 'system-ui,sans-serif';
-
-    const header = document.createElement('div');
-    header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px';
-    const dot = document.createElement('div');
-    dot.style.cssText = `width:12px;height:12px;border-radius:50%;background:${trackingColor}`;
-    const title = document.createElement('strong');
-    title.style.cssText = 'font-size:15px;color:#1e293b';
-    title.textContent = busLabel;
-    header.append(dot, title);
-
-    const body = document.createElement('div');
-    body.style.cssText = 'font-size:13px;color:#475569;line-height:1.8';
-    for (const [label, value] of [
-      ['Speed', `${speedKmh} km/h`],
-      ['Status', trackingStatus],
-      ['Lat', loc.latitude.toFixed(6)],
-      ['Lng', loc.longitude.toFixed(6)],
-      ['Updated', updatedAt],
-    ] as const) {
-      const line = document.createElement('div');
-      line.textContent = `${label}: ${value}`;
-      body.appendChild(line);
-    }
-    root.append(header, body);
-    return root;
-  }, [busNames]);
-
   useEffect(() => {
-    if (!mapRef.current || !mapReady) return;
+    const L = leafletRef.current;
+    const map = mapRef.current;
+    if (!ready || !L || !map) return;
 
-    const activeIds = new Set<number>();
+    const seen = new Set<number>();
+    const points: LatLngExpression[] = [];
 
-    locations.forEach((loc) => {
-      if (!loc.latitude || !loc.longitude) return;
-      activeIds.add(loc.busId);
+    for (const loc of locations) {
+      if (!Number.isFinite(loc.latitude) || !Number.isFinite(loc.longitude)) continue;
+      seen.add(loc.busId);
+      points.push([loc.latitude, loc.longitude]);
 
-      const isActive = loc.isTracking !== false;
-      const position = { lat: loc.latitude, lng: loc.longitude };
-      const color = isActive ? '#22c55e' : '#94a3b8';
-      const existing = markersRef.current.get(loc.busId);
-
-      if (existing) {
-        existing.setPosition(position);
-        existing.setIcon({
-          url: createBusSvgUrl(color),
-          scaledSize: new google.maps.Size(44, 44),
-          anchor: new google.maps.Point(22, 22),
-        });
-      } else {
-        const marker = new google.maps.Marker({
-          map: mapRef.current!,
-          position,
-          title: busNames[loc.busId] || `Bus ${loc.busId}`,
-          icon: {
-            url: createBusSvgUrl(color),
-            scaledSize: new google.maps.Size(44, 44),
-            anchor: new google.maps.Point(22, 22),
-          },
-          optimized: false,
-        });
-
-        marker.addListener('click', () => {
-          if (infoWindowRef.current && mapRef.current) {
-            infoWindowRef.current.setContent(buildInfoContent(loc));
-            infoWindowRef.current.open(mapRef.current, marker);
-          }
-        });
-
+      let marker = markersRef.current.get(loc.busId);
+      const fill = loc.isTracking === false ? '#94a3b8' : '#d97706';
+      if (!marker) {
+        marker = L.circleMarker([loc.latitude, loc.longitude], {
+          radius: 9,
+          color: '#0f766e',
+          weight: 2,
+          fillColor: fill,
+          fillOpacity: 0.95,
+        }).addTo(map);
         markersRef.current.set(loc.busId, marker);
+      } else {
+        marker.setLatLng([loc.latitude, loc.longitude]);
+        marker.setStyle({ fillColor: fill });
       }
-    });
-
-    markersRef.current.forEach((marker, busId) => {
-      if (!activeIds.has(busId)) {
-        marker.setMap(null);
-        markersRef.current.delete(busId);
-      }
-    });
-
-    if (!hasFittedRef.current && locations.length > 0 && mapRef.current) {
-      hasFittedRef.current = true;
-      const validLocs = locations.filter(l => l.latitude && l.longitude);
-
-      if (validLocs.length === 1) {
-        mapRef.current.panTo({ lat: validLocs[0].latitude, lng: validLocs[0].longitude });
-        mapRef.current.setZoom(15);
-      } else if (validLocs.length > 1) {
-        const bounds = new google.maps.LatLngBounds();
-        validLocs.forEach(l => bounds.extend({ lat: l.latitude, lng: l.longitude }));
-        mapRef.current.fitBounds(bounds, 80);
-      }
+      marker.bindPopup(popupNode(loc, busNames));
     }
-  }, [locations, mapReady, busNames, buildInfoContent]);
 
-  const activeBuses = locations.filter((l) => l.isTracking !== false);
+    markersRef.current.forEach((marker, id) => {
+      if (!seen.has(id)) {
+        marker.remove();
+        markersRef.current.delete(id);
+      }
+    });
 
-  if (mapError) {
-    return (
-      <div
-        className="flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-600"
-        style={{ height: `${height}px` }}
-      >
-        {mapError}
-      </div>
-    );
-  }
+    if (!fittedRef.current && points.length > 0) {
+      map.fitBounds(L.latLngBounds(points), { padding: [32, 32], maxZoom: 14 });
+      fittedRef.current = true;
+    }
+  }, [locations, busNames, ready]);
+
+  const active = locations.filter((loc) => loc.isTracking !== false).length;
 
   return (
-    <div className="relative rounded-xl overflow-hidden border border-slate-200 shadow-lg">
-      <div ref={mapContainer} style={{ height: `${height}px`, width: '100%' }} />
-      <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-3 z-10">
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-          <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-          <span>{activeBuses.length} Active</span>
-          <span className="text-slate-400">|</span>
-          <span className="text-slate-500">{locations.length} Total</span>
-        </div>
+    <div className="relative overflow-hidden rounded-xl" dir="ltr" style={{ height }}>
+      <div ref={containerRef} dir="ltr" style={{ height: '100%', width: '100%' }} />
+      <div className="pointer-events-none absolute bottom-3 left-3 z-[1000] rounded-lg bg-white/95 px-3 py-2 text-sm shadow">
+        <span className="font-semibold text-teal-800">{active} live</span>
+        <span className="ml-2 text-slate-500">{locations.length} total</span>
       </div>
     </div>
   );

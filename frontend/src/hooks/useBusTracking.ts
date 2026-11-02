@@ -39,7 +39,6 @@ export function useBusTrackingSocket() {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionAttempts: 10,
       auth: (cb) => {
         cb({ token: readSocketToken() });
       },
@@ -107,6 +106,19 @@ export function useDriverTracking(busId: number | null) {
   );
 
   const startTracking = useCallback(() => {
+    if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
+      setIsTracking(true);
+      setError(null);
+      api
+        .post('/Demo/tracking/start', {})
+        .then(() => setError(null))
+        .catch((err: unknown) => {
+          setIsTracking(false);
+          setError(getApiErrorMessage(err));
+        });
+      return;
+    }
+
     if (!busId) {
       setError('No bus assigned');
       return;
@@ -154,6 +166,18 @@ export function useDriverTracking(busId: number | null) {
     }
 
     let stopError: string | null = null;
+    if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
+      try {
+        await api.post('/Demo/tracking/stop', {});
+      } catch (err: unknown) {
+        console.error('Failed to stop the demo bus:', err);
+        stopError = getApiErrorMessage(err);
+      }
+      setIsTracking(false);
+      setError(stopError);
+      return;
+    }
+
     if (busId) {
       try {
         await api.post(`/BusTracking/stop/${busId}`, {});

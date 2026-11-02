@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useAuth } from '@/hooks/useAuth';
 import { useDriverTracking } from '@/hooks/useBusTracking';
-import { busAPI } from '@/lib/api';
+import { busAPI, userAPI } from '@/lib/api';
 import {
   MapPin,
   Play,
@@ -49,10 +49,13 @@ export default function DriverTrackingPage() {
         }));
         setBuses(busList);
 
-        if (user && (user as any).assignedBusId) {
-          const found = busList.find(
-            (b: BusInfo) => b.id === (user as any).assignedBusId,
-          );
+        let assignedBusId = (user as { assignedBusId?: number } | null)?.assignedBusId;
+        if (!assignedBusId) {
+          const profile = await userAPI.getCurrentUserProfile();
+          assignedBusId = Number(profile?.assignedBusId) || undefined;
+        }
+        if (assignedBusId) {
+          const found = busList.find((b: BusInfo) => b.id === assignedBusId);
           if (found) {
             setAssignedBus(found);
             setSelectedBusId(found.id);
@@ -67,6 +70,7 @@ export default function DriverTrackingPage() {
 
   useEffect(() => {
     if (!isTracking) return;
+    if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') return;
 
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
@@ -98,7 +102,9 @@ export default function DriverTrackingPage() {
                 Bus Tracking
               </h1>
               <p className="text-slate-600 mt-1">
-                Share your real-time location with the management team
+                {process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
+                  ? 'Start moves your assigned bus along a fixed route. This page does not ask for your location.'
+                  : 'Share your real-time location with the management team'}
               </p>
             </div>
           </div>
@@ -188,7 +194,9 @@ export default function DriverTrackingPage() {
               {!isTracking ? (
                 <Button
                   onClick={startTracking}
-                  disabled={!selectedBusId}
+                  disabled={
+                    process.env.NEXT_PUBLIC_DEMO_MODE !== 'true' && !selectedBusId
+                  }
                   className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-12 py-6 rounded-2xl text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
                   <Play className="w-6 h-6 mr-3" />

@@ -67,6 +67,7 @@ const navigationItems = {
   ],
   supervisor: [
     { name: 'My Trips', href: '/dashboard/supervisor/my-trips', icon: Calendar, badge: 'Active' },
+    { name: 'Attendance', href: '/dashboard/supervisor/attendance', icon: ClipboardCheck, badge: 'Today' },
     { name: 'Notifications', href: '/dashboard/supervisor/notifications', icon: Bell },
     { name: 'Profile', href: '/dashboard/supervisor/profile', icon: User, badge: 'Account' },
   ],
@@ -162,7 +163,7 @@ export const Sidebar = ({ userRole }: SidebarProps) => {
       {/* Mobile menu button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={cn('lg:hidden fixed top-4 z-50 p-3 rounded-xl bg-white shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 backdrop-blur-sm', isRTL ? 'right-4' : 'left-4')}
+        className={cn('lg:hidden fixed top-[calc(var(--demo-banner,0px)+1rem)] z-50 p-3 rounded-xl bg-white shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 backdrop-blur-sm', isRTL ? 'right-4' : 'left-4')}
       >
         {isOpen ? (
           <X className="h-6 w-6 text-gray-700" />
@@ -174,7 +175,7 @@ export const Sidebar = ({ userRole }: SidebarProps) => {
       {/* Sidebar */}
     <div
         className={cn(
-      'fixed inset-y-0 z-40 w-72 bg-white shadow-2xl transform transition-all duration-300 ease-in-out lg:translate-x-0',
+      'fixed top-[var(--demo-banner,0px)] bottom-0 z-40 w-72 bg-white shadow-2xl transform transition-all duration-300 ease-in-out lg:translate-x-0',
       isRTL ? 'right-0 border-l border-gray-200' : 'left-0 border-r border-gray-200',
       isOpen ? 'translate-x-0' : isRTL ? 'translate-x-full' : '-translate-x-full'
         )}

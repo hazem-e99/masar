@@ -118,13 +118,20 @@ export default function StudentDashboard() {
 				setPlans(plansData as Plan[] || []);
 				const bookings = (Array.isArray(bookingsRes) ? bookingsRes : []) as Array<Booking & { bookingDate?: string }>;
 				const notifications = (notifRes as any)?.data || [];
-				const paymentWhen = (payment: Payment & { createdAt?: string; subscriptionPlanName?: string }) =>
-					payment.createdAt || payment.date;
+				const paymentWhen = (payment: { createdAt?: string; date?: string }) =>
+					payment.createdAt || payment.date || '';
 				const bookingWhen = (booking: Booking & { bookingDate?: string }) => booking.bookingDate || booking.date;
 
-				// determine current plan name (if any)
-				const lastSubPayment = (Array.isArray(payments) ? payments : []).filter((x: Payment) => !x.tripId)
-					.sort((a, b) => new Date(paymentWhen(b as Payment & { createdAt?: string })).getTime() - new Date(paymentWhen(a as Payment & { createdAt?: string })).getTime())[0] as (Payment & { subscriptionPlanName?: string }) | undefined;
+				const paymentRows = (Array.isArray(payments) ? payments : []) as Array<{
+					tripId?: string | number;
+					createdAt?: string;
+					date?: string;
+					subscriptionPlanName?: string;
+					description?: string;
+				}>;
+				const lastSubPayment = paymentRows
+					.filter((row) => !row.tripId)
+					.sort((a, b) => new Date(paymentWhen(b)).getTime() - new Date(paymentWhen(a)).getTime())[0];
 				const planFromPayment = lastSubPayment?.subscriptionPlanName
 					|| (lastSubPayment?.description ? String(lastSubPayment.description).replace(/^Subscription\s+/i, '') : '');
 				const resolvedPlan = planFromPayment || null;
