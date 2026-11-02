@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -32,6 +33,7 @@ import { BookingsModule } from './modules/bookings/bookings.module';
 import { BusTrackingModule } from './modules/bus-tracking/bus-tracking.module';
 import { VotingModule } from './modules/voting/voting.module';
 import { AdminSystemModule } from './modules/admin-system/admin-system.module';
+import { DemoModule } from './modules/demo/demo.module';
 
 @Module({
   imports: [
@@ -67,6 +69,7 @@ import { AdminSystemModule } from './modules/admin-system/admin-system.module';
     BusTrackingModule,
     VotingModule,
     AdminSystemModule,
+    ...(process.env.DEMO_MODE === 'true' ? [DemoModule] : []),
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

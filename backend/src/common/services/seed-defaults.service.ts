@@ -36,6 +36,7 @@ export class SeedDefaultsService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
+    if (process.env.DEMO_MODE === 'true') return;
     try {
       await this.seed(this.departmentService, this.DEFAULT_DEPARTMENTS, 'department');
       await this.seed(this.yearOfStudyService, this.DEFAULT_YEARS, 'year of study');
