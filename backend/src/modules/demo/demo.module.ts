@@ -18,6 +18,7 @@ import { PreferredArea, PreferredAreaSchema } from '../preferred-area/preferred-
 import { YearOfStudy, YearOfStudySchema } from '../year-of-study/year-of-study.schema';
 import { Setting, SettingSchema } from '../settings/setting.schema';
 import { BusTrackingModule } from '../bus-tracking/bus-tracking.module';
+import { TripsModule } from '../trips/trips.module';
 import { DemoController } from './demo.controller';
 import { DemoPolicyInterceptor } from './demo-policy.interceptor';
 import { DemoResetService } from './demo-reset.service';
@@ -27,6 +28,7 @@ import { DemoSimulatorService } from './demo-simulator.service';
 @Module({
   imports: [
     BusTrackingModule,
+    TripsModule,
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: Bus.name, schema: BusSchema },

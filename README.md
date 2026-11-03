@@ -22,33 +22,35 @@ Every account uses the password `Masar-demo-1`.
 
 The login page has a one-click button for each role when `NEXT_PUBLIC_DEMO_MODE=true`.
 
-The free API host sleeps after it is idle. The first click shows “Waking the demo server, about 1 minute”, then opens the page. A ping every 10 minutes from 07:00 to 23:00 Cairo time keeps it awake during the day.
+The first click shows “Waking the demo server” while the API function starts. After that, an open tab keeps the demo reset and the trip clock moving.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
   browser[Browser]
-  vercel[Vercel: Next.js]
-  render[Render: NestJS and Socket.IO]
+  web[Vercel: Next.js]
+  api[Vercel: NestJS]
   atlas[MongoDB Atlas: masar_demo]
   osm[OpenStreetMap tiles]
 
-  browser --> vercel
-  vercel --> render
-  render --> atlas
-  browser -->|authenticated tracking socket| render
+  browser --> web
+  web --> api
+  api --> atlas
+  browser -->|tracking socket and map poll| api
   browser --> osm
 ```
 
 | Part | Where it runs | What it does |
 |---|---|---|
-| Frontend | Vercel Hobby | Next.js 15, React 19, Arabic and English |
-| API | Render free web service | NestJS, Socket.IO, the hourly reset, the bus simulator |
+| Frontend | Vercel project, root `frontend` | Next.js 15, React 19, Arabic and English |
+| API | Vercel project, root `backend` | NestJS on one Fluid function, Socket.IO, demo reset, bus simulator |
 | Database | MongoDB Atlas M0 | The current Mongoose models, database name `masar_demo` |
 | Map | Leaflet and OpenStreetMap | No map API key. Attribution stays on the map |
 
-The API process has to stay running for sockets and the reset job, which a frontend host cannot do. The disk on the free API host is wiped on restart, so uploads are not durable. The database name is checked before every reset. If it is not `masar_demo`, the reset writes nothing.
+Import this repository twice. One project uses Root Directory `frontend`. The other uses Root Directory `backend`. Vercel detects the NestJS app from `backend/src/main.ts`.
+
+The free plan does not run a cron more than once a day, so the API does the reset check, the trip clock, and the bus step when a page calls `/api/Demo/status` or `/api/Demo/tick`. The step is saved in the database, so a new function instance continues the same route. Uploaded files live in temporary storage and disappear when the function shuts down. The database name is checked before every reset. If it is not `masar_demo`, the reset writes nothing.
 
 ## Stack
 
@@ -95,7 +97,7 @@ Copy `backend/.env.example` and `frontend/.env.example` if you want the full lis
 These lines describe only what the project does. They do not include traffic, user, or performance figures.
 
 - Built a role-based university bus system: trip scheduling, seat booking, attendance, subscriptions, payment review, surveys, and live fleet tracking over an authenticated WebSocket.
-- Published a separate public demo on free hosting (Next.js on Vercel, NestJS and Socket.IO on Render, MongoDB Atlas, Leaflet and OpenStreetMap) that reseeds fictional data every 6 hours and blocks destructive changes to seeded records.
+- Published a separate public demo on free hosting (Next.js and NestJS on Vercel, MongoDB Atlas, Leaflet and OpenStreetMap) that reseeds fictional data every 6 hours and blocks destructive changes to seeded records.
 - Added explicit role checks on every API route, record-ownership checks, rate limits, security headers, and a fail-closed guard so a route without an access rule is denied.
 
 ## Notes

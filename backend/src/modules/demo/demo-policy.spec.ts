@@ -59,6 +59,7 @@ describe('demo policy', () => {
 
   it('keeps the public status route and the driver tracking routes', () => {
     expect(typeof DemoController.prototype.status).toBe('function');
+    expect(typeof DemoController.prototype.tick).toBe('function');
     expect(typeof DemoController.prototype.start).toBe('function');
     expect(typeof DemoController.prototype.stop).toBe('function');
   });

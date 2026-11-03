@@ -8,6 +8,9 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCodes } from '../../common/exceptions/error-codes';
 import { User, UserDocument } from '../users/user.schema';
+import { BusTrackingService } from '../bus-tracking/bus-tracking.service';
+import { TripsService } from '../trips/trips.service';
+import { DemoResetService } from './demo-reset.service';
 import { DemoSimulatorService } from './demo-simulator.service';
 import { RESET_INTERVAL_MS } from './demo-id.util';
 
@@ -15,18 +18,39 @@ import { RESET_INTERVAL_MS } from './demo-id.util';
 export class DemoController {
   constructor(
     private readonly simulator: DemoSimulatorService,
+    private readonly reset: DemoResetService,
+    private readonly trips: TripsService,
+    private readonly tracking: BusTrackingService,
     @InjectModel(User.name) private readonly users: Model<UserDocument>,
   ) {}
 
   @Public()
   @SkipThrottle()
   @Get('status')
-  status() {
+  async status() {
+    await this.housekeeping();
     return {
       demo: true,
       resetEveryHours: RESET_INTERVAL_MS / (60 * 60 * 1000),
       serverTime: new Date().toISOString(),
     };
+  }
+
+  @Public()
+  @SkipThrottle()
+  @Get('tick')
+  async tick() {
+    await this.housekeeping();
+    await this.simulator.catchUp();
+    return this.tracking.getAllLocations();
+  }
+
+  private async housekeeping(): Promise<void> {
+    await Promise.allSettled([
+      this.reset.resetIfDue(),
+      this.trips.handleTripStatusCron(),
+      this.simulator.rollLiveTrips(),
+    ]);
   }
 
   @Post('tracking/start')
@@ -43,8 +67,8 @@ export class DemoController {
 
   @Post('tracking/stop')
   @Roles('Driver')
-  stop() {
-    this.simulator.stop();
+  async stop() {
+    await this.simulator.stop();
     return { tracking: false };
   }
 }

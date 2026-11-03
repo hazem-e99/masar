@@ -36,7 +36,7 @@ export function useBusTrackingSocket() {
 
   useEffect(() => {
     const socket = io(SOCKET_URL, {
-      transports: ['websocket', 'polling'],
+      transports: ['websocket'],
       reconnection: true,
       reconnectionDelay: 1000,
       auth: (cb) => {
@@ -75,6 +75,46 @@ export function useBusTrackingSocket() {
 
     return () => {
       socket.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_DEMO_MODE !== 'true') return;
+    let cancelled = false;
+
+    const pull = async () => {
+      try {
+        const response = await api.get<{ data?: BusLocationData[] }>('/Demo/tick');
+        const list = Array.isArray(response?.data) ? response.data : [];
+        if (cancelled) return;
+        setLocations((prev) => {
+          const next = new Map(prev);
+          for (const row of list) {
+            const busId = Number(row.busId);
+            if (!Number.isFinite(busId)) continue;
+            next.set(busId, {
+              busId,
+              latitude: Number(row.latitude),
+              longitude: Number(row.longitude),
+              speed: Number(row.speed || 0),
+              driverId: String(row.driverId || ''),
+              timestamp: row.timestamp ? new Date(row.timestamp).toISOString() : new Date().toISOString(),
+              isTracking: row.isTracking !== false,
+            });
+          }
+          return next;
+        });
+        setIsConnected(true);
+      } catch {
+        if (!cancelled) setIsConnected(false);
+      }
+    };
+
+    void pull();
+    const timer = window.setInterval(() => void pull(), 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
     };
   }, []);
 

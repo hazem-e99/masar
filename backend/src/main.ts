@@ -12,14 +12,14 @@ import { formatValidationErrors } from './common/utils/format-validation-errors'
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  // One client behind Nginx/Render should not share a single rate-limit bucket.
+  // One visitor behind the host's proxy should not share a single rate-limit bucket.
   app.set('trust proxy', 1);
   app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
   }));
 
   const configService = app.get(ConfigService);
-  const port = configService.get<number>('PORT', 7126);
+  const portFromConfig = configService.get<number>('PORT', 7126);
   const corsOrigin = configService.get<string>('CORS_ORIGIN', 'http://localhost:3000');
   const configuredOrigins = corsOrigin
     .split(',')
@@ -52,17 +52,25 @@ async function bootstrap() {
     }),
   );
 
-  const uploadDir = configService.get<string>('UPLOAD_DIR', './uploads');
+  const onVercel = process.env.VERCEL === '1';
+  const uploadDir = onVercel
+    ? '/tmp/masar-uploads'
+    : configService.get<string>('UPLOAD_DIR', './uploads');
   const resolvedUploadDir = isAbsolute(uploadDir)
     ? uploadDir
     : join(process.cwd(), uploadDir);
 
-  if (!fs.existsSync(resolvedUploadDir)) {
-    fs.mkdirSync(resolvedUploadDir, { recursive: true });
+  try {
+    if (!fs.existsSync(resolvedUploadDir)) {
+      fs.mkdirSync(resolvedUploadDir, { recursive: true });
+    }
+    app.useStaticAssets(resolvedUploadDir, { prefix: '/uploads/' });
+  } catch (error) {
+    console.warn('Upload directory is not available on this host.', error);
   }
-  app.useStaticAssets(resolvedUploadDir, { prefix: '/uploads/' });
 
-  const host = configService.get<string>('HOST');
+  const port = Number(process.env.PORT ?? portFromConfig ?? 7126);
+  const host = onVercel ? undefined : configService.get<string>('HOST');
   if (host) {
     await app.listen(port, host);
   } else {

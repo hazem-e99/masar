@@ -40,16 +40,24 @@ export function DemoWakeGate({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!DEMO || !ready) return;
+    const beat = window.setInterval(() => {
+      void fetch(`${getBackendOrigin()}/api/Demo/status`, { cache: 'no-store' }).catch(() => undefined);
+    }, 60_000);
+    return () => window.clearInterval(beat);
+  }, [ready]);
+
   if (!ready && showWake) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-6">
         <div className="max-w-md space-y-3 text-center">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-teal-700 border-t-transparent" />
           <p className="text-lg font-semibold text-slate-900">
-            Waking the demo server, about 1 minute
+            Waking the demo server. This usually takes a few seconds.
           </p>
           <p className="text-sm text-slate-600" dir="rtl">
-            جارٍ تشغيل الخادم التجريبي، حوالي دقيقة واحدة
+            جارٍ تشغيل الخادم التجريبي. هذا عادة يستغرق بضع ثوانٍ.
           </p>
         </div>
       </div>
