@@ -4,6 +4,8 @@ A public demo of a university bus system. Visitors can sign in as an admin, a mo
 
 The people, payments, phone numbers, and trips in this demo are fictional. The database is wiped back to that fictional set every 6 hours. Records a visitor creates can still be deleted. Seeded records, staff passwords, and the purge action stay locked.
 
+Source: [github.com/hazem-e99/masar](https://github.com/hazem-e99/masar)
+
 The live site is the Vercel production URL. It is not linked here until that deploy exists. Screenshots belong in this file after the production site is up.
 
 ## Demo accounts
