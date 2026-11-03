@@ -21,7 +21,7 @@ const ADMIN_PASSWORD_HASH =
 // We'll use the actual bcrypt module since it's already installed
 let bcrypt;
 try {
-  bcrypt = require('bcrypt');
+  bcrypt = require('bcryptjs');
 } catch {
   console.log('bcrypt not found, will use placeholder hashes');
 }
