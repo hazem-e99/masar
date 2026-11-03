@@ -9,18 +9,11 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-
-function trackingOrigins(): string[] {
-  const configured = (process.env.CORS_ORIGIN || 'http://localhost:3000')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-  return Array.from(new Set([...configured, 'http://localhost:3000']));
-}
+import { corsOriginCallback } from '../../config/cors';
 
 @WebSocketGateway({
   cors: {
-    origin: trackingOrigins(),
+    origin: corsOriginCallback,
     methods: ['GET', 'POST'],
     credentials: true,
   },

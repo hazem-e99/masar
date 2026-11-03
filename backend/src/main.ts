@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import { AppException } from './common/exceptions/app.exception';
 import { ErrorCodes } from './common/exceptions/error-codes';
 import { formatValidationErrors } from './common/utils/format-validation-errors';
+import { corsOriginCallback } from './config/cors';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -20,15 +21,9 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const portFromConfig = configService.get<number>('PORT', 7126);
-  const corsOrigin = configService.get<string>('CORS_ORIGIN', 'http://localhost:3000');
-  const configuredOrigins = corsOrigin
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-  const corsOrigins = Array.from(new Set([...configuredOrigins, 'http://localhost:3000', 'http://localhost:3001']));
 
   app.enableCors({
-    origin: corsOrigins,
+    origin: corsOriginCallback,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Cache-Control', 'Pragma'],
