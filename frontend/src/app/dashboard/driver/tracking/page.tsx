@@ -287,14 +287,17 @@ export default function DriverTrackingPage() {
                 <span className="w-5 h-5 bg-blue-200 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
                   2
                 </span>
-                Click &quot;Start Tracking&quot; to begin sharing your location
+                {process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
+                  ? 'Click "Start Tracking" to start moving the bus on its route'
+                  : 'Click "Start Tracking" to begin sharing your location'}
               </li>
               <li className="flex items-start gap-2">
                 <span className="w-5 h-5 bg-blue-200 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
                   3
                 </span>
-                Your GPS position is sent every 7 seconds to the management
-                dashboard
+                {process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
+                  ? 'The simulated position appears on the management live map every few seconds'
+                  : 'Your GPS position is sent every 7 seconds to the management dashboard'}
               </li>
               <li className="flex items-start gap-2">
                 <span className="w-5 h-5 bg-blue-200 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">

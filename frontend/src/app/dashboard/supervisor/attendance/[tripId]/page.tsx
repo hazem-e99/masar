@@ -67,6 +67,18 @@ interface TableRow {
 	attendanceStatus: 'present' | 'absent' | 'late' | null;
 }
 
+/** API records use numeric ids and 'Present'; the page compares string ids and lowercase statuses. */
+function normalizeAttendance(records: unknown): Attendance[] {
+	return (Array.isArray(records) ? records : []).map((record: any) => ({
+		...record,
+		id: String(record.id ?? ''),
+		studentId: String(record.studentId ?? ''),
+		tripId: String(record.tripId ?? ''),
+		status: String(record.status || '').toLowerCase(),
+		timestamp: record.timestamp || record.markedAt || record.createdAt,
+	}));
+}
+
 export default function TripAttendancePage() {
 	const params = useParams();
 	const tripId = (params?.tripId as string) || '';
@@ -124,14 +136,7 @@ export default function TripAttendancePage() {
 					email: student.email || '',
 					role: String(student.role || '').toLowerCase(),
 				})));
-				setAttendances((Array.isArray(atts) ? atts : []).map((record: any) => ({
-					...record,
-					id: asId(record.id),
-					studentId: asId(record.studentId),
-					tripId: asId(record.tripId),
-					status: String(record.status || '').toLowerCase(),
-					timestamp: record.timestamp || record.markedAt || record.createdAt,
-				})));
+				setAttendances(normalizeAttendance(atts));
 			} catch (error) {
 				console.error('Failed to load data:', error);
 				setTrip(null);
@@ -196,8 +201,8 @@ export default function TripAttendancePage() {
 
 	const refreshAttendance = async () => {
 		try { 
-			const atts = await attendanceAPI.getByTrip(tripId); 
-			setAttendances(Array.isArray(atts) ? atts as Attendance[] : []); 
+			const atts = await attendanceAPI.getByTrip(tripId);
+			setAttendances(normalizeAttendance(atts));
 		} catch (error) {
 			console.error('Failed to refresh attendance:', error);
 		}

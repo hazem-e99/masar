@@ -150,8 +150,8 @@ export default function StudentDashboard() {
 								id: trip.id,
 								startLocation: trip.startLocation || '',
 								endLocation: trip.endLocation || '',
-								startTime: trip.startTime || '',
-								endTime: trip.endTime || ''
+								startTime: trip.departureTimeOnly || trip.startTime || '',
+								endTime: trip.arrivalTimeOnly || trip.endTime || ''
 							});
 						} catch (error: unknown) {
 							console.error('Failed to load latest trip details:', error);

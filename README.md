@@ -4,9 +4,9 @@ A public demo of a university bus system. Visitors can sign in as an admin, a mo
 
 The people, payments, phone numbers, and trips in this demo are fictional. The database is wiped back to that fictional set every 6 hours. Records a visitor creates can still be deleted. Seeded records, staff passwords, and the purge action stay locked.
 
-Source: [github.com/hazem-e99/masar](https://github.com/hazem-e99/masar)
-
-The live site is the Vercel production URL. It is not linked here until that deploy exists. Screenshots belong in this file after the production site is up.
+- **Live demo:** [masar-web-flame.vercel.app](https://masar-web-flame.vercel.app/auth/login)
+- **API:** [masar-api-ten.vercel.app/api/Demo/status](https://masar-api-ten.vercel.app/api/Demo/status)
+- **Source:** [github.com/hazem-e99/masar](https://github.com/hazem-e99/masar)
 
 ## Demo accounts
 
@@ -37,14 +37,14 @@ flowchart LR
   browser --> web
   web --> api
   api --> atlas
-  browser -->|tracking socket and map poll| api
+  browser -->|map poll| api
   browser --> osm
 ```
 
 | Part | Where it runs | What it does |
 |---|---|---|
 | Frontend | Vercel project, root `frontend` | Next.js 15, React 19, Arabic and English |
-| API | Vercel project, root `backend` | NestJS on one Fluid function, Socket.IO, demo reset, bus simulator |
+| API | Vercel project, root `backend` | NestJS on one function, demo reset, bus simulator. Vercel functions do not keep WebSocket connections open, so the live map polls `/api/Demo/tick`. The Socket.IO gateway works when the API runs as a normal server |
 | Database | MongoDB Atlas M0 | The current Mongoose models, database name `masar_demo` |
 | Map | Leaflet and OpenStreetMap | No map API key. Attribution stays on the map |
 
