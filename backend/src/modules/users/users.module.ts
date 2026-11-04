@@ -7,6 +7,7 @@ import { User, UserSchema } from './user.schema';
 import { StudentSubscription, StudentSubscriptionSchema } from '../student-subscription/student-subscription.schema';
 import { Payment, PaymentSchema } from '../payment/payment.schema';
 import { SubscriptionPlan, SubscriptionPlanSchema } from '../subscription-plan/subscription-plan.schema';
+import { resolveUploadDir } from '../../config/upload-dir';
 
 @Module({
   imports: [
@@ -16,7 +17,7 @@ import { SubscriptionPlan, SubscriptionPlanSchema } from '../subscription-plan/s
       { name: Payment.name, schema: PaymentSchema },
       { name: SubscriptionPlan.name, schema: SubscriptionPlanSchema },
     ]),
-    MulterModule.register({ dest: './uploads' }),
+    MulterModule.register({ dest: resolveUploadDir() }),
   ],
   controllers: [UsersController],
   providers: [UsersService],

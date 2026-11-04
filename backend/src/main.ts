@@ -3,13 +3,13 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
-import { join, isAbsolute } from 'path';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import * as fs from 'fs';
 import { AppException } from './common/exceptions/app.exception';
 import { ErrorCodes } from './common/exceptions/error-codes';
 import { formatValidationErrors } from './common/utils/format-validation-errors';
 import { corsOriginCallback } from './config/cors';
+import { resolveUploadDir } from './config/upload-dir';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -48,12 +48,7 @@ async function bootstrap() {
   );
 
   const onVercel = process.env.VERCEL === '1';
-  const uploadDir = onVercel
-    ? '/tmp/masar-uploads'
-    : configService.get<string>('UPLOAD_DIR', './uploads');
-  const resolvedUploadDir = isAbsolute(uploadDir)
-    ? uploadDir
-    : join(process.cwd(), uploadDir);
+  const resolvedUploadDir = resolveUploadDir();
 
   try {
     if (!fs.existsSync(resolvedUploadDir)) {
