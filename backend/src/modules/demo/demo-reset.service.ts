@@ -5,6 +5,9 @@ import { Connection } from 'mongoose';
 import { DEMO_DB_NAME, RESET_INTERVAL_MS } from './demo-id.util';
 import { DemoSeedService } from './demo-seed.service';
 
+/** Longest a reset may hold the lock before another instance may retry it. */
+const RESET_LOCK_MS = 3 * 60 * 1000;
+
 @Injectable()
 export class DemoResetService implements OnApplicationBootstrap {
   private readonly logger = new Logger(DemoResetService.name);
@@ -38,15 +41,18 @@ export class DemoResetService implements OnApplicationBootstrap {
     const claimed = await this.claim();
     if (!claimed.won) return false;
     this.running = true;
+    const meta = this.connection.collection('demo_meta');
     try {
       await this.seed.reseed();
+      const finishedAt = new Date();
+      await meta.updateOne(
+        { _id: 'sentinel' as never },
+        { $set: { completedAt: finishedAt, lastResetAt: finishedAt }, $unset: { lockedUntil: '' } },
+      );
       this.logger.log('Demo data reseeded.');
       return true;
     } catch (error) {
-      await this.connection.collection('demo_meta').updateOne(
-        { _id: 'sentinel' as never },
-        { $set: { lastResetAt: claimed.previous ?? new Date(0) } },
-      );
+      await meta.updateOne({ _id: 'sentinel' as never }, { $unset: { lockedUntil: '' } });
       throw error;
     } finally {
       this.running = false;
@@ -69,21 +75,28 @@ export class DemoResetService implements OnApplicationBootstrap {
     return true;
   }
 
-  /** One process wins the reset. A recent claim means the data is still fresh. */
-  private async claim(): Promise<{ won: boolean; previous?: Date }> {
+  /**
+   * One process wins the reset by taking a short lock.
+   * Only a finished reset sets completedAt, so a reset the host stopped halfway
+   * is retried once its lock expires instead of waiting for the next interval.
+   */
+  private async claim(): Promise<{ won: boolean }> {
     const meta = this.connection.collection('demo_meta');
-    const cutoff = new Date(Date.now() - RESET_INTERVAL_MS);
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - RESET_INTERVAL_MS);
     try {
-      const previous = await meta.findOneAndUpdate(
+      await meta.findOneAndUpdate(
         {
           _id: 'sentinel' as never,
-          $or: [{ lastResetAt: { $lte: cutoff } }, { lastResetAt: { $exists: false } }],
+          $and: [
+            { $or: [{ completedAt: { $lte: cutoff } }, { completedAt: { $exists: false } }] },
+            { $or: [{ lockedUntil: { $lte: now } }, { lockedUntil: { $exists: false } }] },
+          ],
         },
-        { $set: { lastResetAt: new Date(), databaseName: DEMO_DB_NAME } },
-        { upsert: true, returnDocument: 'before' },
+        { $set: { lockedUntil: new Date(now.getTime() + RESET_LOCK_MS), databaseName: DEMO_DB_NAME } },
+        { upsert: true },
       );
-      const lastResetAt = (previous as { lastResetAt?: Date } | null)?.lastResetAt;
-      return { won: true, previous: lastResetAt };
+      return { won: true };
     } catch (error) {
       const code = (error as { code?: number })?.code;
       if (code === 11000) return { won: false };
